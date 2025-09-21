@@ -1,0 +1,2 @@
+SHORTENED_ID_LENGTH = 6
+URLMAP_VALID_FIELDS = ['original', 'short']
