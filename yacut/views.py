@@ -1,4 +1,7 @@
-from flask import render_template, request, redirect
+from urllib.parse import urljoin
+
+from flask import render_template, request, redirect, flash, url_for
+from sqlalchemy.exc import SQLAlchemyError
 
 from yacut import app, db
 from yacut.forms import CreateLinkForm
@@ -12,31 +15,39 @@ def index_view():
     if not form.validate_on_submit():
         return render_template('index.html', form=form)
 
-    form_short_id = form.custom_id.data.strip()
-    if form_short_id and URLMap.query.filter_by(short=form_short_id).first():
-        return render_template(
-            'index.html',
-            form=form,
-            error='Предложенный вариант ИД для короткой ссылки '
-                  f'{form_short_id} уже существует.'
+    custom_id = form.custom_id.data
+    if custom_id and URLMap.query.filter_by(short=custom_id).first():
+        flash('Предложенный вариант короткой ссылки уже существует.',
+              'error')
+        return render_template('index.html', form=form)
+
+    url_map = URLMap(
+        original=form.original_link.data,
+        short=custom_id or get_unique_short_id()
+    )
+    try:
+        db.session.add(url_map)
+        db.session.commit()
+        short_url = url_for(
+            'redirect_to_original',
+            short=url_map.short,
+            _external=True
         )
+        flash(f'Ссылка успешно создана', 'link-ready')
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        flash(f'Произошла ошибка ({e}) при сохранении ссылки.',
+              'error')
+        app.logger.error("Database error: %s", e)
 
-    original_link = form.original_link.data
-    new_short_id = form_short_id or get_unique_short_id()
-
-    url_map = URLMap(original=original_link, short=new_short_id)
-    db.session.add(url_map)
-    db.session.commit()
-
-    base_url = request.host_url.rstrip('/')
     return render_template(
         'index.html',
         form=form,
-        short_link=f'{base_url}/{new_short_id}'
+        link=short_url
     )
 
 
-@app.route('/<str:short_id>')
-def redirect_to_original(short_id):
-    url_map = URLMap.query.get_or_404(short_id)
+@app.route('/<string:short>', methods=['GET'])
+def redirect_to_original(short):
+    url_map = URLMap.query.filter_by(short=short).first_or_404()
     return redirect(url_map.original)

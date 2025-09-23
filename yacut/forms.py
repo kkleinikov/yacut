@@ -1,6 +1,8 @@
 from flask_wtf import FlaskForm
 from wtforms import SubmitField, StringField
-from wtforms.validators import DataRequired, URL, Length, Regexp
+from wtforms.validators import DataRequired, URL, Length, Regexp, Optional
+
+from yacut.constants import SHORTENED_ID_MAX_LENGTH
 
 
 class CreateLinkForm(FlaskForm):
@@ -15,10 +17,11 @@ class CreateLinkForm(FlaskForm):
         'Ваш вариант короткой ссылки',
         [
             Length(
-                max=16,
+                max=SHORTENED_ID_MAX_LENGTH,
                 message='Длина ИД для короткой ссылки не должна превышать '
                         '16 символов'
             ),
+            Optional(),
             Regexp(
                 r'^[a-zA-Z0-9]+$',
                 message='Используйте только латинские буквы и цифры'

@@ -2,13 +2,17 @@ from datetime import datetime, timezone
 from typing import Any, Dict
 
 from yacut import db
-from yacut.constants import URLMAP_VALID_FIELDS
+from yacut.constants import URLMAP_VALID_FIELDS, URL_MAX_LENGTH, SHORTENED_ID_MAX_LENGTH
 
 
 class URLMap(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    original = db.Column(db.String(512), nullable=False)
-    short = db.Column(db.String(16), unique=True, nullable=False)
+    original = db.Column(db.String(URL_MAX_LENGTH), nullable=False)
+    short = db.Column(
+        db.String(SHORTENED_ID_MAX_LENGTH),
+        unique=True,
+        nullable=False
+    )
     timestamp = db.Column(
         db.DateTime,
         default=lambda: datetime.now(timezone.utc)
@@ -24,11 +28,8 @@ class URLMap(db.Model):
             Dict[str, Any]: Словарное представление модели.
         """
         return {
-            'id': self.id,
             'original': self.original,
-            'short': self.short,
-            'timestamp': self.timestamp.isoformat() if self.timestamp
-            else None,
+            'short': self.short
         }
 
 
