@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
-from wtforms import SubmitField, StringField
-from wtforms.validators import DataRequired, URL, Length, Regexp, Optional
+from wtforms import StringField, SubmitField
+from wtforms.validators import URL, DataRequired, Length, Optional, Regexp
 
 from yacut.constants import SHORTENED_ID_MAX_LENGTH
 

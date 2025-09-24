@@ -1,22 +1,38 @@
 from http import HTTPStatus
 
-from flask import request, jsonify
+from flask import jsonify, request, Response
 from sqlalchemy.exc import SQLAlchemyError
 
 from yacut import app, db
 from yacut.error_handlers import InvalidAPIUsage
 from yacut.models import URLMap
 from yacut.utils import get_unique_short_id
-from yacut.validators import validate_url, validate_custom_id, validate_data
+from yacut.validators import validate_custom_id, validate_data, validate_url
 
 
 @app.route('/api/id/', methods=['POST'])
-def add_short_id():
-    if not request.is_json or request.json is None:
+def add_short_id() -> tuple[Response, int]:
+    """
+    Обрабатывает POST-запрос на создание новой короткой ссылки.
+
+    Ожидается JSON-тело с полем 'url' и опциональным полем 'custom_id'.
+    Если 'custom_id' не указан — генерируется случайный уникальный
+    идентификатор.
+    Результат сохраняется в базу данных, и возвращается JSON-ответ
+    с короткой ссылкой.
+
+    Returns:
+        tuple[Response, int]: Ответ Flask в формате JSON и HTTP-статус код.
+
+    Raises:
+        InvalidAPIUsage: При отсутствии данных, неверном формате или
+        конфликте ID.
+    """
+    if not request.is_json:
         raise InvalidAPIUsage(
             'Отсутствует тело запроса'
         )
-    data = request.get_json()
+    data = request.get_json(silent=True)
     validate_data(data)
 
     try:
@@ -50,7 +66,19 @@ def add_short_id():
 
 
 @app.route('/api/id/<string:short_id>/')
-def get_original_link(short_id):
+def get_original_link(short_id: str) -> tuple[Response, int]:
+    """
+    Возвращает оригинальную ссылку по короткому идентификатору.
+
+    Args:
+        short_id (str): Короткий идентификатор ссылки.
+
+    Returns:
+        tuple[Response, int]: Ответ Flask в формате JSON и HTTP-статус код.
+
+    Raises:
+        InvalidAPIUsage: Если указанный short_id не найден.
+    """
     url_map = URLMap.query.filter_by(short=short_id).first()
     if not url_map:
         raise InvalidAPIUsage('Указанный id не найден', 404)

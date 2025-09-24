@@ -2,10 +2,27 @@ from datetime import datetime, timezone
 from typing import Any, Dict
 
 from yacut import db
-from yacut.constants import URLMAP_VALID_FIELDS, URL_MAX_LENGTH, SHORTENED_ID_MAX_LENGTH
+from yacut.constants import (SHORTENED_ID_MAX_LENGTH, URL_MAX_LENGTH)
 
 
 class URLMap(db.Model):
+    """
+    Модель данных для хранения оригинальной и короткой ссылок.
+
+    Представляет собой запись в базе данных, где хранятся:
+    - оригинальная (полная) ссылка,
+    - сгенерированная или пользовательская короткая ссылка,
+    - дата создания записи.
+
+    Используется в приложении YaCut для управления короткими ссылками.
+
+    Attributes:
+        id (int): Уникальный идентификатор записи (автоматически генерируется).
+        original (str): Оригинальная, длинная ссылка.
+        short (str): Короткая ссылка, по которой будет происходить редирект.
+        created_at (datetime): Дата и время создания записи.
+    """
+
     id = db.Column(db.Integer, primary_key=True)
     original = db.Column(db.String(URL_MAX_LENGTH), nullable=False)
     short = db.Column(
@@ -31,21 +48,3 @@ class URLMap(db.Model):
             'original': self.original,
             'short': self.short
         }
-
-
-    def from_dict(self, data: Dict[str, Any]) -> None:
-        """Заполняет атрибуты экземпляра данными из словаря.
-
-        Аргумент:
-            data (Dict[str, Any]): Словарь с данными, где ключи соответствуют
-                                   именам полей модели.
-
-        Поведение:
-            Обходит список допустимых полей и устанавливает значения атрибутов
-            только если они присутствуют в переданном словаре. Это позволяет
-            обновлять модель частично, без перезаписи всех полей.
-        """
-
-        for field in data:
-            if field in URLMAP_VALID_FIELDS:
-                setattr(self, field, data[field])
