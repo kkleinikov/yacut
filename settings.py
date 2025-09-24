@@ -7,4 +7,3 @@ class Config(object):
         default='sqlite:///db.sqlite3'
     )
     SECRET_KEY = os.getenv('FLASK_SECRET_KEY', default='secret-string')
-
