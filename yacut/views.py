@@ -1,12 +1,12 @@
 from typing import Union
 
-from flask import flash, redirect, render_template, url_for, Response
+from flask import Response, flash, redirect, render_template
 from sqlalchemy.exc import SQLAlchemyError
 
 from yacut import app, db
+from yacut.exceptions import ShortIDGenerationError
 from yacut.forms import CreateLinkForm
 from yacut.models import URLMap
-from yacut.utils import get_unique_short_id
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -26,29 +26,29 @@ def index_view() -> str:
         return render_template('index.html', form=form)
 
     custom_id = form.custom_id.data
-    if custom_id and URLMap.query.filter_by(short=custom_id).first():
-        flash('Предложенный вариант короткой ссылки уже существует.',
-              'error')
-        return render_template('index.html', form=form)
+    original_link = form.original_link.data.strip()
 
-    url_map = URLMap(
-        original=form.original_link.data,
-        short=custom_id or get_unique_short_id()
-    )
     try:
-        db.session.add(url_map)
-        db.session.commit()
-        short_url = url_for(
-            'redirect_to_original',
-            short=url_map.short,
-            _external=True
+        urlmap = URLMap.create_urlmap(
+            original=original_link,
+            custom_short=custom_id
         )
-        flash('Ссылка успешно создана', 'link-ready')
+        short_url = urlmap.get_short_url()
+
+    except ValueError as e:
+        flash(str(e), 'error')
+        return render_template('index.html', form=form)
+    except ShortIDGenerationError as e:
+        flash(
+            f'Не удалось создать уникальную короткую ссылку: {str(e)}',
+            'error'
+        )
+        return render_template('index.html', form=form)
     except SQLAlchemyError as e:
         db.session.rollback()
-        flash(f'Произошла ошибка ({e}) при сохранении ссылки.',
-              'error')
-        app.logger.error("Database error: %s", e)
+        flash(f'Произошла ошибка: {str(e)}', 'error')
+        app.logger.error(f'Ошибка базы данных: {e}')
+        return render_template('index.html', form=form)
 
     return render_template(
         'index.html',

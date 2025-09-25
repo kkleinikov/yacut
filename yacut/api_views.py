@@ -1,13 +1,13 @@
 from http import HTTPStatus
 
-from flask import jsonify, request, Response
+from flask import Response, jsonify, request
 from sqlalchemy.exc import SQLAlchemyError
 
 from yacut import app, db
 from yacut.error_handlers import InvalidAPIUsage
+from yacut.exceptions import ShortIDGenerationError
 from yacut.models import URLMap
-from yacut.utils import get_unique_short_id
-from yacut.validators import validate_custom_id, validate_data, validate_url
+from yacut.validators import validate_data
 
 
 @app.route('/api/id/', methods=['POST'])
@@ -36,33 +36,25 @@ def add_short_id() -> tuple[Response, int]:
     validate_data(data)
 
     try:
-        validate_url(data['url'])
-        custom_id = data.get('custom_id', '').strip()
-        if custom_id:
-            validate_custom_id(custom_id)
-            if URLMap.query.filter_by(short=custom_id).first():
-                raise InvalidAPIUsage(
-                    'Предложенный вариант короткой ссылки уже существует.'
-                )
-        else:
-            custom_id = get_unique_short_id()
-
-        url_map = URLMap(original=data['url'], short=custom_id)
-        db.session.add(url_map)
-        db.session.commit()
-        return jsonify({
-            'url': data['url'],
-            'short_link': f'{request.host_url.rstrip("/")}/{custom_id}'
-        }), HTTPStatus.CREATED
-
+        urlmap = URLMap.create_urlmap(
+            original=data['url'],
+            custom_short=data.get('custom_id')
+        )
     except ValueError as e:
         raise InvalidAPIUsage(str(e))
+    except ShortIDGenerationError as e:
+        raise InvalidAPIUsage(str(e), HTTPStatus.INTERNAL_SERVER_ERROR)
     except SQLAlchemyError as e:
         db.session.rollback()
         raise InvalidAPIUsage(
             f'Произошла ошибка базы данных: {str(e)}',
             HTTPStatus.INTERNAL_SERVER_ERROR
         )
+
+    return jsonify({
+        'url': data['url'],
+        'short_link': urlmap.get_short_url()
+    }), HTTPStatus.CREATED
 
 
 @app.route('/api/id/<string:short_id>/')
@@ -79,7 +71,9 @@ def get_original_link(short_id: str) -> tuple[Response, int]:
     Raises:
         InvalidAPIUsage: Если указанный short_id не найден.
     """
-    url_map = URLMap.query.filter_by(short=short_id).first()
-    if not url_map:
-        raise InvalidAPIUsage('Указанный id не найден', 404)
-    return jsonify({'url': url_map.original}), HTTPStatus.OK
+    urlmap = URLMap.get_by_short(short_id)
+    if not urlmap:
+        raise InvalidAPIUsage(
+            'Указанный id не найден', HTTPStatus.NOT_FOUND
+        )
+    return jsonify({'url': urlmap.original}), HTTPStatus.OK

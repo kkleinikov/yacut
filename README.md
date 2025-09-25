@@ -35,9 +35,10 @@ yacut/
 │   ├── /static/        # Статические файлы (CSS, JS и т. д.)
 │   ├── api_views.py    # Обработчики API
 │   ├── constants.py    # Константы проекта
+│   ├── exceptions.py   # Кастомные исключения
 │   ├── error_handlers.py  # Обработка ошибок
+│   ├── forms.py        # Обработчик формы
 │   ├── models.py       # Модели базы данных
-│   ├── utils.py        # Вспомогательные функции
 │   ├── validators.py   # Валидаторы значений
 │   └── views.py        # Обработчики маршрутов
 ├── requirements.txt    # Зависимости
